@@ -16,6 +16,7 @@
   color-scheme:dark;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{margin:0;background:var(--bg);color:var(--fg)}
 body{font:14px/1.5 var(--fb);padding-block:max(16px,env(safe-area-inset-top,0px)) 40px;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
@@ -287,7 +288,7 @@ function render(){
   setTxt("projCov",pf(r.cov)+" do eleitorado na conta");
   setTxt("prDiff",pT? (r.pA>r.pB?nA:nB)+" +"+short(Math.abs(r.pA-r.pB)) : "—");
   const shift = (pT&&oT)? pPa-oPa : NaN;
-  setTxt("prShift", isFinite(shift)? (shift>=0?"+":"")+shift.toLocaleString("pt-BR",{maximumFractionDigits:2})+" p.p. para "+(shift>=0?nA:nB) : "—");
+  setTxt("prShift", isFinite(shift)? "+"+Math.abs(shift).toLocaleString("pt-BR",{maximumFractionDigits:2})+" p.p. para "+(shift>=0?nA:nB) : "—");
 
   // mapa
   const m=$("map"); m.innerHTML="";
