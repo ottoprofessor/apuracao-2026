@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Apuração Ponderada 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;700;800&family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: resumo (oficial x projeção) no topo, depois mapa-grade + evolução, depois tabela por UF. Uma coluna no celular. */
+:root{
+  --bg:#080A0F; --panel:#0E121A; --panel2:#131926; --line:#1F2636;
+  --fg:#E9ECF4; --mut:#8C95A8; --accent:#6D5DF6;
+  --ca:#22D3EE; --cb:#F5B83D; --bad:#F87171; --ok:#4ADE80;
+  --fd:'Exo 2',system-ui,sans-serif; --fb:'DM Sans',system-ui,sans-serif; --fm:'JetBrains Mono',ui-monospace,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg)}
+body{font:14px/1.5 var(--fb);padding-block:max(16px,env(safe-area-inset-top,0px)) 40px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+h1{font:800 clamp(22px,4vw,30px)/1.1 var(--fd);margin:0;letter-spacing:.01em;text-wrap:balance}
+h2{font:700 13px/1.2 var(--fd);margin:0;text-transform:uppercase;letter-spacing:.08em;color:var(--mut)}
+.mono{font-family:var(--fm);font-variant-numeric:tabular-nums}
+.mut{color:var(--mut)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+.status{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:12px}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel);white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--mut)}
+.dot.live{background:var(--ok);box-shadow:0 0 0 0 rgba(74,222,128,.6);animation:pulse 1.6s infinite}
+.dot.err{background:var(--bad)}
+@keyframes pulse{70%{box-shadow:0 0 0 7px rgba(74,222,128,0)}100%{box-shadow:0 0 0 0 rgba(74,222,128,0)}}
+@media (prefers-reduced-motion:reduce){.dot.live{animation:none}}
+button,select{font:500 13px var(--fb);color:var(--fg);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer}
+button:hover,select:hover{border-color:var(--accent)}
+button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.banner{border-color:#5b2a2a;background:#160d10}
+.banner.demo{border-color:#4a3d12;background:#15120a}
+.banner p{margin:0}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.kpi .head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.kpi.proj{border-color:#3a3270;background:linear-gradient(180deg,#141029,var(--panel) 60%)}
+.duo{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+.cand{display:flex;flex-direction:column;min-width:0}
+.cand.r{align-items:flex-end;text-align:right}
+.cand .nm{font:700 13px var(--fd);letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.cand .pc{font:800 clamp(30px,6vw,44px)/1 var(--fd);font-variant-numeric:tabular-nums}
+.cand .vt{font:400 12px var(--fm);color:var(--mut)}
+.ca{color:var(--ca)} .cb{color:var(--cb)}
+.split{position:relative;height:14px;border-radius:7px;overflow:hidden;background:var(--cb);display:flex}
+.split i{display:block;height:100%;background:var(--ca);transition:width .6s ease}
+.split::after{content:"";position:absolute;left:50%;top:-3px;bottom:-3px;width:2px;background:var(--bg)}
+.foot{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12px;color:var(--mut)}
+.foot b{color:var(--fg);font-weight:600}
+.grid2{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:16px}
+@media (max-width:860px){.grid2{grid-template-columns:1fr}}
+.map{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;max-width:420px;width:100%;margin:0 auto}
+.tile{aspect-ratio:1;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid var(--line);background:var(--panel2);font:700 11px var(--fd);line-height:1.1;position:relative;overflow:hidden;max-width:100%}
+.tile small{font:400 9px var(--fm);opacity:.85}
+.tile .fill{position:absolute;left:0;bottom:0;right:0;opacity:.18}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--mut);justify-content:center}
+.sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.chart svg{width:100%;height:auto;display:block}
+.tablebox{overflow-x:auto;margin:0 -16px;padding:0 16px}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:640px}
+th{font:600 11px var(--fd);text-transform:uppercase;letter-spacing:.06em;color:var(--mut);text-align:right;padding:8px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+td{padding:7px 6px;border-bottom:1px solid #161c28;text-align:right;font-family:var(--fm);font-variant-numeric:tabular-nums;white-space:nowrap}
+td.uf{font:700 13px var(--fd)}
+td.uf span{font:400 11px var(--fb);color:var(--mut);margin-left:6px}
+.bar{display:inline-block;width:70px;height:6px;border-radius:3px;background:var(--line);vertical-align:middle;margin-right:8px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent)}
+tr.excl td{opacity:.45}
+.tag{display:inline-block;padding:1px 7px;border-radius:5px;font:600 11px var(--fd)}
+.tag.a{background:rgba(34,211,238,.14);color:var(--ca)}
+.tag.b{background:rgba(245,184,61,.14);color:var(--cb)}
+.tag.n{background:var(--panel2);color:var(--mut)}
+.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+.tools label{font-size:12px;color:var(--mut);display:flex;align-items:center;gap:6px}
+.method{font-size:12px;color:var(--mut);max-width:80ch;margin:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div>
+    <h2>Presidente · 2º turno · 25/10/2026</h2>
+    <h1>Apuração Ponderada 2026</h1>
+  </div>
+  <div class="status">
+    <span class="pill"><span class="dot" id="dot"></span><span id="stTxt">Conectando ao TSE…</span></span>
+    <span class="pill mono" id="tseTime">TSE —</span>
+    <button id="btnNow" type="button">Atualizar agora</button>
+    <button id="btnAuto" type="button">Auto: 30s</button>
+  </div>
+</header>
+
+<section class="panel banner" id="errBox" hidden>
+  <p><b>Não consegui ler os dados do TSE daqui.</b> Abra este arquivo direto no navegador do computador (Chrome, Edge ou Safari). Dentro do app do Claude e de algumas visualizações de arquivo no celular, o acesso a sites externos é bloqueado.</p>
+  <p class="mut" id="errDetail"></p>
+  <div><button class="primary" id="btnDemo" type="button">Ver com dados simulados</button></div>
+</section>
+
+<section class="panel banner demo" id="demoBox" hidden>
+  <p><b>Modo simulação.</b> Números inventados só para você ver o painel funcionando. Nada aqui é resultado real.</p>
+  <div><button id="btnReal" type="button">Voltar a tentar o TSE</button></div>
+</section>
+
+<section class="kpis">
+  <div class="panel kpi">
+    <div class="head"><h2>Resultado oficial agora</h2><span class="mono mut" id="offPst">— urnas</span></div>
+    <div class="duo">
+      <div class="cand"><span class="nm ca" id="offNa">—</span><span class="pc ca" id="offPa">—</span><span class="vt" id="offVa"></span></div>
+      <div class="cand r"><span class="nm cb" id="offNb">—</span><span class="pc cb" id="offPb">—</span><span class="vt" id="offVb"></span></div>
+    </div>
+    <div class="split"><i id="offBar" style="width:50%"></i></div>
+    <div class="foot"><span>Diferença <b class="mono" id="offDiff">—</b></span><span>Votos válidos apurados <b class="mono" id="offVv">—</b></span></div>
+  </div>
+  <div class="panel kpi proj">
+    <div class="head"><h2>Previsão ponderada por estado</h2><span class="mono mut" id="projCov">—</span></div>
+    <div class="duo">
+      <div class="cand"><span class="nm ca" id="prNa">—</span><span class="pc ca" id="prPa">—</span><span class="vt" id="prVa"></span></div>
+      <div class="cand r"><span class="nm cb" id="prNb">—</span><span class="pc cb" id="prPb">—</span><span class="vt" id="prVb"></span></div>
+    </div>
+    <div class="split"><i id="prBar" style="width:50%"></i></div>
+    <div class="foot"><span>Diferença projetada <b class="mono" id="prDiff">—</b></span><span>Viés da apuração <b class="mono" id="prShift">—</b></span></div>
+  </div>
+</section>
+
+<section class="grid2">
+  <div class="panel">
+    <h2>Quem lidera em cada estado</h2>
+    <div class="map" id="map"></div>
+    <div class="legend"><span><i class="sw" style="background:var(--ca)"></i><span id="lgA">—</span></span><span><i class="sw" style="background:var(--cb)"></i><span id="lgB">—</span></span><span><i class="sw" style="background:var(--panel2);border:1px solid var(--line)"></i>sem apuração</span></div>
+    <p class="method">A cor mais forte indica margem maior. O número embaixo da sigla é o % de urnas apuradas.</p>
+  </div>
+  <div class="panel chart">
+    <div class="head" style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><h2>Evolução nesta noite</h2><span class="mut" style="font-size:12px" id="chLbl">% dos válidos de <b class="ca" id="chName">—</b></span></div>
+    <div id="chart"></div>
+    <div class="legend"><span><i class="sw" style="background:var(--mut)"></i>oficial</span><span><i class="sw" style="background:var(--accent)"></i>previsão ponderada</span><span>linha tracejada = 50%</span></div>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="tools">
+    <h2>Estado por estado</h2>
+    <div style="display:flex;flex-wrap:wrap;gap:10px">
+      <label for="minPct">Entrar na previsão a partir de
+        <select id="minPct"><option value="0">qualquer %</option><option value="5">5% apurado</option><option value="10">10% apurado</option><option value="20">20% apurado</option></select>
+      </label>
+      <label for="sortBy">Ordenar por
+        <select id="sortBy"><option value="te">tamanho do eleitorado</option><option value="rest">votos que ainda faltam</option><option value="pct">% apurado</option><option value="mg">margem</option></select>
+      </label>
+    </div>
+  </div>
+  <div class="tablebox">
+    <table>
+      <thead><tr>
+        <th>UF</th><th>Apurado</th><th id="thA">A</th><th id="thB">B</th><th>Líder</th><th>Eleitorado</th><th>Válidos a apurar (est.)</th><th>Saldo projetado do que falta</th>
+      </tr></thead>
+      <tbody id="tb"></tbody>
+    </table>
+  </div>
+  <p class="method"><b>Como a previsão é feita:</b> em cada estado, o resultado das urnas já apuradas vale para 100% do estado. Os votos de cada candidato são multiplicados por (eleitorado total ÷ eleitorado das seções apuradas) e depois somados entre os estados. Assim, um estado grande com pouca apuração passa a pesar o que realmente pesa. A previsão supõe que o que falta em cada estado vota igual ao que já entrou; no começo da noite isso erra mais, porque capitais e interior costumam ser apurados em ritmos diferentes. Estados sem nenhuma urna apurada ficam de fora até começarem.</p>
+</section>
+
+</div>
+
+<script>
+(function(){
+"use strict";
+const ELE = "6258";
+const BASE = "https://resultados.tse.jus.br/oficial/ele2026/"+ELE+"/dados/";
+const url = uf => BASE+uf+"/"+uf+"-c0001-e00"+ELE+"-u.json";
+const UFS = ["ac","al","am","ap","ba","ce","df","es","go","ma","mg","ms","mt","pa","pb","pe","pi","pr","rj","rn","ro","rr","rs","sc","se","sp","to","zz"];
+const NOME = {ac:"Acre",al:"Alagoas",am:"Amazonas",ap:"Amapá",ba:"Bahia",ce:"Ceará",df:"Distrito Federal",es:"Espírito Santo",go:"Goiás",ma:"Maranhão",mg:"Minas Gerais",ms:"Mato Grosso do Sul",mt:"Mato Grosso",pa:"Pará",pb:"Paraíba",pe:"Pernambuco",pi:"Piauí",pr:"Paraná",rj:"Rio de Janeiro",rn:"Rio Grande do Norte",ro:"Rondônia",rr:"Roraima",rs:"Rio Grande do Sul",sc:"Santa Catarina",se:"Sergipe",sp:"São Paulo",to:"Tocantins",zz:"Exterior"};
+const GRID = {rr:[2,0],ap:[4,0],am:[1,1],pa:[3,1],ma:[5,1],ce:[6,1],rn:[7,1],ac:[0,2],ro:[1,2],mt:[2,2],to:[4,2],pi:[5,2],pe:[6,2],pb:[7,2],ms:[2,3],go:[3,3],df:[4,3],ba:[5,3],se:[6,3],al:[7,3],sp:[3,4],mg:[4,4],es:[5,4],pr:[3,5],rj:[4,5],sc:[3,6],rs:[3,7],zz:[0,7]};
+const REFRESH = 30;
+
+const $ = id => document.getElementById(id);
+const nf = new Intl.NumberFormat("pt-BR");
+const pf = v => isFinite(v) ? v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})+"%" : "—";
+const num = s => { const n = parseInt(String(s??"0").replace(/\D/g,""),10); return isNaN(n)?0:n; };
+const short = n => Math.abs(n)>=1e6 ? (n/1e6).toLocaleString("pt-BR",{maximumFractionDigits:2})+" mi" : Math.abs(n)>=1e3 ? Math.round(n/1e3).toLocaleString("pt-BR")+" mil" : nf.format(Math.round(n));
+const esc = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+let S = {data:{}, br:null, cands:null, demo:false, auto:true, minPct:0, sort:"te", hist:[], timer:null, left:REFRESH, demoState:null, busy:false};
+try{ const h = JSON.parse(localStorage.getItem("apur26-hist")||"[]"); if(Array.isArray(h)) S.hist = h; }catch(e){}
+
+function candsOf(j){
+  const out=[];
+  ((j.carg&&j.carg[0]&&j.carg[0].agr)||[]).forEach(a=>(a.par||[]).forEach(p=>(p.cand||[]).forEach(c=>out.push({n:String(c.n),nm:c.nmu||c.nm,v:num(c.vap),seq:num(c.seq)}))));
+  return out.sort((a,b)=>a.seq-b.seq);
+}
+function parse(j){
+  const e=j.e||{}, s=j.s||{}, v=j.v||{};
+  return {te:num(e.te),est:num(e.est),ts:num(s.ts),st:num(s.st),vv:num(v.vv),vb:num(v.vb),vn:num(v.tvn||v.vn),abst:num(e.a),c:candsOf(j),dg:j.dg||"",hg:j.hg||""};
+}
+
+/* ---------- busca no TSE ---------- */
+async function fetchReal(){
+  const list = ["br"].concat(UFS);
+  const res = await Promise.allSettled(list.map(uf=>fetch(url(uf),{cache:"no-store"}).then(r=>{ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })));
+  let ok=0, firstErr="";
+  res.forEach((r,i)=>{
+    const uf=list[i];
+    if(r.status==="fulfilled"){ ok++; const d=parse(r.value); if(uf==="br") S.br=d; else S.data[uf]=d; }
+    else if(!firstErr) firstErr = (r.reason&&r.reason.message)||String(r.reason);
+  });
+  return {ok,total:list.length,err:firstErr};
+}
+
+/* ---------- simulação (só para teste) ---------- */
+const TE_DEMO={sp:34.4,mg:16.4,rj:12.8,ba:11.4,rs:8.6,pr:8.3,pe:7.0,ce:6.9,pa:6.2,sc:5.6,go:4.9,ma:4.9,pb:3.1,es:2.9,am:2.7,rn:2.6,pi:2.6,mt:2.5,al:2.3,df:2.2,ms:2.0,se:1.7,ro:1.3,to:1.1,zz:0.7,ac:0.6,ap:0.6,rr:0.37};
+function demoTick(){
+  if(!S.demoState){
+    S.demoState={};
+    UFS.forEach(uf=>{ const north = ["ba","pe","ce","ma","pi","pb","rn","al","se","pa","am","ap","to"].includes(uf); const south=["sc","pr","rs","sp","mt","ms","go","ro","ac","rr","df"].includes(uf);
+      S.demoState[uf]={share:(north?0.62:south?0.40:0.50)+(Math.random()-0.5)*0.08, bias:(Math.random()-0.5)*0.10, p:0, delay:Math.random()*0.15};});
+  }
+  let tA=0,tB=0,teAll=0,stAll=0,tsAll=0;
+  UFS.forEach(uf=>{
+    const d=S.demoState[uf];
+    if(d.delay>0) d.delay-=0.06; else d.p=Math.min(1,d.p+0.05+Math.random()*0.12);
+    const te=Math.round(TE_DEMO[uf]*1e6), ts=Math.round(te/320), st=Math.round(ts*d.p), est=Math.round(te*d.p);
+    const share=Math.min(.95,Math.max(.05,d.share+d.bias*(1-d.p)));
+    const vv=Math.round(est*0.76), vA=Math.round(vv*share), vB=vv-vA;
+    S.data[uf]={te,est,ts,st,vv,vb:Math.round(est*.02),vn:Math.round(est*.03),abst:0,c:[{n:"A",nm:"Candidato A",v:vA,seq:1},{n:"B",nm:"Candidato B",v:vB,seq:2}],dg:"",hg:""};
+    tA+=vA;tB+=vB;teAll+=te;stAll+=st;tsAll+=ts;
+  });
+  const now=new Date();
+  S.br={te:teAll,est:0,ts:tsAll,st:stAll,vv:tA+tB,c:[{n:"A",nm:"Candidato A",v:tA,seq:1},{n:"B",nm:"Candidato B",v:tB,seq:2}],dg:now.toLocaleDateString("pt-BR"),hg:now.toLocaleTimeString("pt-BR")};
+}
+
+/* ---------- cálculo ---------- */
+function compute(){
+  const base = (S.br&&S.br.c.length)?S.br.c:(Object.values(S.data).find(d=>d.c.length)||{c:[]}).c;
+  if(base.length<2) return null;
+  const A=base[0].n, B=base[1].n;
+  const pick=(d,n)=>{const c=d.c.find(x=>x.n===n);return c?c.v:0;};
+  let pA=0,pB=0,cA=0,cB=0,covTe=0,teAll=0;
+  const rows=[];
+  UFS.forEach(uf=>{
+    const d=S.data[uf]; if(!d) return;
+    teAll+=d.te;
+    const vA=pick(d,A), vB=pick(d,B), sum=vA+vB;
+    const pct = d.ts? d.st/d.ts*100 : 0;
+    const frac = (d.est>0&&d.te>0)? d.est/d.te : (d.ts? d.st/d.ts : 0);
+    const has = sum>0 && frac>0;
+    const inc = has && pct>=S.minPct;
+    const fA = has? vA/frac : 0, fB = has? vB/frac : 0;
+    if(inc){ pA+=fA; pB+=fB; covTe+=d.te; }
+    cA+=vA; cB+=vB;
+    rows.push({uf,te:d.te,pct,has,inc,sA:sum?vA/sum*100:NaN,sB:sum?vB/sum*100:NaN,
+      lead: !sum?null:(vA>vB?"a":vB>vA?"b":null), mg: sum? Math.abs(vA-vB)/sum*100 : 0,
+      rest: has? (fA+fB)-sum : NaN, net: has? (fA-vA)-(fB-vB) : NaN});
+  });
+  let oA=cA,oB=cB,pst=NaN;
+  if(S.br){ oA=pick(S.br,A); oB=pick(S.br,B); pst = S.br.ts? S.br.st/S.br.ts*100 : NaN; }
+  if(!isFinite(pst)){ const st=UFS.reduce((s,u)=>s+(S.data[u]?S.data[u].st:0),0), ts=UFS.reduce((s,u)=>s+(S.data[u]?S.data[u].ts:0),0); pst = ts? st/ts*100 : 0; }
+  return {A:base[0],B:base[1],oA,oB,pst,pA,pB,cov: teAll? covTe/teAll*100 : 0, rows};
+}
+
+/* ---------- render ---------- */
+function setTxt(id,t){ $(id).textContent=t; }
+function render(){
+  const r=compute();
+  if(!r){ return; }
+  const nA=r.A.nm, nB=r.B.nm;
+  ["offNa","prNa","lgA","chName","thA"].forEach(id=>setTxt(id,nA));
+  ["offNb","prNb","lgB","thB"].forEach(id=>setTxt(id,nB));
+  const oT=r.oA+r.oB, oPa=oT? r.oA/oT*100 : NaN, oPb=oT? r.oB/oT*100 : NaN;
+  setTxt("offPa",pf(oPa)); setTxt("offPb",pf(oPb));
+  setTxt("offVa",nf.format(r.oA)+" votos"); setTxt("offVb",nf.format(r.oB)+" votos");
+  $("offBar").style.width=(oT?oPa:50)+"%";
+  setTxt("offPst",pf(r.pst)+" das urnas");
+  setTxt("offDiff",oT? short(Math.abs(r.oA-r.oB))+" votos" : "—");
+  setTxt("offVv",nf.format(oT));
+  const pT=r.pA+r.pB, pPa=pT? r.pA/pT*100 : NaN, pPb=pT? r.pB/pT*100 : NaN;
+  setTxt("prPa",pf(pPa)); setTxt("prPb",pf(pPb));
+  setTxt("prVa",pT? "~"+short(r.pA)+" votos":""); setTxt("prVb",pT? "~"+short(r.pB)+" votos":"");
+  $("prBar").style.width=(pT?pPa:50)+"%";
+  setTxt("projCov",pf(r.cov)+" do eleitorado na conta");
+  setTxt("prDiff",pT? (r.pA>r.pB?nA:nB)+" +"+short(Math.abs(r.pA-r.pB)) : "—");
+  const shift = (pT&&oT)? pPa-oPa : NaN;
+  setTxt("prShift", isFinite(shift)? (shift>=0?"+":"")+shift.toLocaleString("pt-BR",{maximumFractionDigits:2})+" p.p. para "+(shift>=0?nA:nB) : "—");
+
+  // mapa
+  const m=$("map"); m.innerHTML="";
+  const rowBy={}; r.rows.forEach(x=>rowBy[x.uf]=x);
+  Object.keys(GRID).forEach(uf=>{
+    const [c,rw]=GRID[uf], x=rowBy[uf];
+    const t=document.createElement("div"); t.className="tile"; t.style.gridColumn=(c+1); t.style.gridRow=(rw+1);
+    const lbl = uf==="zz"?"EXT":uf.toUpperCase();
+    let col="", alpha=0;
+    if(x&&x.lead){ col = x.lead==="a"?"34,211,238":"245,184,61"; alpha=Math.min(.9,.25+x.mg/30); }
+    if(col){ t.style.background="rgba("+col+","+alpha+")"; t.style.borderColor="rgba("+col+",.6)"; t.style.color= alpha>.55?"#080A0F":"var(--fg)"; }
+    t.title = (NOME[uf]||uf)+(x&&x.has? " · "+pf(x.pct)+" apurado · "+nA+" "+pf(x.sA)+" × "+nB+" "+pf(x.sB) : " · sem apuração");
+    t.innerHTML = lbl+"<small>"+(x&&x.has? Math.round(x.pct)+"%" : "—")+"</small>";
+    m.appendChild(t);
+  });
+
+  // tabela
+  const rows=r.rows.slice();
+  const k=S.sort;
+  rows.sort((a,b)=> k==="te"? b.te-a.te : k==="pct"? b.pct-a.pct : k==="mg"? b.mg-a.mg : ((isFinite(b.rest)?b.rest:-1)-(isFinite(a.rest)?a.rest:-1)));
+  $("tb").innerHTML = rows.map(x=>{
+    const lead = x.lead==="a"? '<span class="tag a">'+esc(nA)+' +'+x.mg.toFixed(1).replace(".",",")+'</span>' : x.lead==="b"? '<span class="tag b">'+esc(nB)+' +'+x.mg.toFixed(1).replace(".",",")+'</span>' : '<span class="tag n">—</span>';
+    const net = isFinite(x.net)&&Math.abs(x.net)>=1 ? '<span class="'+(x.net>0?"ca":"cb")+'">'+(x.net>0?esc(nA):esc(nB))+' +'+short(Math.abs(x.net))+'</span>' : '<span class="mut">—</span>';
+    return '<tr class="'+(x.has&&!x.inc?"excl":"")+'"><td class="uf">'+(x.uf==="zz"?"EXT":x.uf.toUpperCase())+'<span>'+esc(NOME[x.uf])+'</span></td>'+
+      '<td><span class="bar"><i style="width:'+Math.min(100,x.pct)+'%"></i></span>'+pf(x.pct)+'</td>'+
+      '<td class="ca">'+pf(x.sA)+'</td><td class="cb">'+pf(x.sB)+'</td><td>'+lead+'</td>'+
+      '<td>'+short(x.te)+'</td><td>'+(isFinite(x.rest)?short(x.rest):"—")+'</td><td>'+net+'</td></tr>';
+  }).join("");
+
+  // histórico
+  if(pT&&oT){
+    const last=S.hist[S.hist.length-1];
+    const pt={t:Date.now(),pst:+r.pst.toFixed(3),off:+oPa.toFixed(3),proj:+pPa.toFixed(3),demo:S.demo?1:0};
+    if(!last || last.pst!==pt.pst || last.demo!==pt.demo){ S.hist.push(pt); if(S.hist.length>400) S.hist.shift(); }
+    if(!S.demo){ try{ localStorage.setItem("apur26-hist",JSON.stringify(S.hist.filter(h=>!h.demo))); }catch(e){} }
+  }
+  drawChart();
+}
+
+function drawChart(){
+  const pts=S.hist.filter(h=>!!h.demo===S.demo);
+  const W=600,H=220,L=44,R=12,T=14,Bm=30;
+  if(pts.length<2){ $("chart").innerHTML='<p class="mut" style="margin:24px 0;text-align:center">O gráfico aparece a partir da segunda atualização.</p>'; return; }
+  const xs=pts.map(p=>p.pst);
+  let ymin=Math.min(50,...pts.map(p=>Math.min(p.off,p.proj))), ymax=Math.max(50,...pts.map(p=>Math.max(p.off,p.proj)));
+  const pad=Math.max(1,(ymax-ymin)*0.15); ymin=Math.floor(ymin-pad); ymax=Math.ceil(ymax+pad);
+  const x0=Math.min(...xs), x1=Math.max(...xs, x0+1);
+  const X=v=>L+(v-x0)/(x1-x0)*(W-L-R), Y=v=>T+(ymax-v)/(ymax-ymin)*(H-T-Bm);
+  const step = (ymax-ymin)>12?4:(ymax-ymin)>6?2:1;
+  let g="";
+  for(let v=Math.ceil(ymin/step)*step; v<=ymax; v+=step){ g+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+Y(v)+'" y2="'+Y(v)+'" stroke="#1F2636"/><text x="'+(L-6)+'" y="'+(Y(v)+4)+'" fill="#8C95A8" font-size="11" text-anchor="end" font-family="JetBrains Mono,monospace">'+v+'%</text>'; }
+  const xt=[x0,(x0+x1)/2,x1];
+  xt.forEach(v=>{ g+='<text x="'+X(v)+'" y="'+(H-10)+'" fill="#8C95A8" font-size="11" text-anchor="middle" font-family="JetBrains Mono,monospace">'+Math.round(v)+'% urnas</text>'; });
+  const path=k=>pts.map((p,i)=>(i?"L":"M")+X(p.pst).toFixed(1)+","+Y(p[k]).toFixed(1)).join("");
+  const lp=pts[pts.length-1];
+  $("chart").innerHTML='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Evolução do percentual oficial e da previsão">'+g+
+    '<line x1="'+L+'" x2="'+(W-R)+'" y1="'+Y(50)+'" y2="'+Y(50)+'" stroke="#E9ECF4" stroke-opacity=".5" stroke-dasharray="4 4"/>'+
+    '<path d="'+path("off")+'" fill="none" stroke="#8C95A8" stroke-width="2"/>'+
+    '<path d="'+path("proj")+'" fill="none" stroke="#6D5DF6" stroke-width="2.5"/>'+
+    '<circle cx="'+X(lp.pst)+'" cy="'+Y(lp.proj)+'" r="4" fill="#6D5DF6"/><circle cx="'+X(lp.pst)+'" cy="'+Y(lp.off)+'" r="3.5" fill="#8C95A8"/></svg>';
+}
+
+/* ---------- ciclo ---------- */
+function setStatus(kind,txt){ $("dot").className="dot"+(kind?" "+kind:""); setTxt("stTxt",txt); }
+async function refresh(){
+  if(S.busy) return; S.busy=true;
+  try{
+    if(S.demo){ demoTick(); setStatus("live","Simulação"); }
+    else{
+      setStatus("", "Buscando no TSE…");
+      const r=await fetchReal();
+      if(r.ok===0){
+        setStatus("err","Sem acesso ao TSE");
+        $("errBox").hidden=false; setTxt("errDetail","Detalhe técnico: "+(r.err||"falha de rede"));
+        S.busy=false; return;
+      }
+      $("errBox").hidden=true;
+      setStatus("live", r.ok<r.total? "Ao vivo · "+(r.total-r.ok)+" arquivo(s) falharam" : "Ao vivo");
+    }
+    if(S.br&&S.br.hg) setTxt("tseTime",(S.demo?"Simulado ":"TSE ")+S.br.hg);
+    render();
+  }catch(e){ setStatus("err","Erro: "+e.message); }
+  S.busy=false;
+}
+function tick(){
+  if(!S.auto){ setTxt("btnAuto","Auto: desligado"); return; }
+  S.left--; if(S.left<=0){ S.left=S.demo?4:REFRESH; refresh(); }
+  setTxt("btnAuto","Auto: "+S.left+"s");
+}
+$("btnNow").addEventListener("click",()=>{ S.left=S.demo?4:REFRESH; refresh(); });
+$("btnAuto").addEventListener("click",()=>{ S.auto=!S.auto; S.left=S.demo?4:REFRESH; setTxt("btnAuto",S.auto?"Auto: "+S.left+"s":"Auto: desligado"); });
+$("btnDemo").addEventListener("click",()=>{ S.demo=true; S.data={}; S.br=null; S.demoState=null; $("errBox").hidden=true; $("demoBox").hidden=false; S.left=4; refresh(); });
+$("btnReal").addEventListener("click",()=>{ S.demo=false; S.data={}; S.br=null; $("demoBox").hidden=true; S.left=REFRESH; refresh(); });
+$("minPct").addEventListener("change",e=>{ S.minPct=+e.target.value; render(); });
+$("sortBy").addEventListener("change",e=>{ S.sort=e.target.value; render(); });
+setInterval(tick,1000);
+refresh();
+})();
+</script>
+</body>
+</html>
