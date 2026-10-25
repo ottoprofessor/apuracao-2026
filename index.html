@@ -82,6 +82,20 @@ tr.excl td{opacity:.45}
 .tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
 .tools label{font-size:12px;color:var(--mut);display:flex;align-items:center;gap:6px}
 .method{font-size:12px;color:var(--mut);max-width:80ch;margin:0}
+.regs{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px}
+.reg{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.reg .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.reg h3{margin:0;font:800 18px/1.1 var(--fd)}
+.reg .sz{font:400 11px var(--fm);color:var(--mut);text-align:right}
+.reg .prog{display:flex;align-items:center;gap:8px;font:400 12px var(--fm);color:var(--mut)}
+.reg .prog .bar{flex:1;width:auto;margin:0}
+.reg .lines{display:grid;grid-template-columns:auto 1fr 1fr;gap:4px 10px;align-items:baseline;font-size:12px}
+.reg .lines span:nth-child(3n+1){color:var(--mut)}
+.reg .lines b{font:700 15px var(--fd);font-variant-numeric:tabular-nums}
+.reg .lines b.r{text-align:right}
+.reg .split{height:10px}
+.reg .note{font-size:12px;color:var(--mut);display:flex;flex-direction:column;gap:2px}
+.reg .note b{color:var(--fg);font-weight:600}
 </style>
 </head>
 <body>
@@ -147,6 +161,11 @@ tr.excl td{opacity:.45}
 </section>
 
 <section class="panel">
+  <div class="tools"><h2>Por região</h2><span class="mut" style="font-size:12px">mesma regra da previsão, somando os estados de cada região</span></div>
+  <div class="regs" id="regs"></div>
+</section>
+
+<section class="panel">
   <div class="tools">
     <h2>Estado por estado</h2>
     <div style="display:flex;flex-wrap:wrap;gap:10px">
@@ -154,7 +173,7 @@ tr.excl td{opacity:.45}
         <select id="minPct"><option value="0">qualquer %</option><option value="5">5% apurado</option><option value="10">10% apurado</option><option value="20">20% apurado</option></select>
       </label>
       <label for="sortBy">Ordenar por
-        <select id="sortBy"><option value="te">tamanho do eleitorado</option><option value="rest">votos que ainda faltam</option><option value="pct">% apurado</option><option value="mg">margem</option></select>
+        <select id="sortBy"><option value="te">tamanho do eleitorado</option><option value="rest">votos que ainda faltam</option><option value="pct">% apurado</option><option value="mg">margem</option><option value="reg">região</option></select>
       </label>
     </div>
   </div>
@@ -181,6 +200,8 @@ const UFS = ["ac","al","am","ap","ba","ce","df","es","go","ma","mg","ms","mt","p
 const NOME = {ac:"Acre",al:"Alagoas",am:"Amazonas",ap:"Amapá",ba:"Bahia",ce:"Ceará",df:"Distrito Federal",es:"Espírito Santo",go:"Goiás",ma:"Maranhão",mg:"Minas Gerais",ms:"Mato Grosso do Sul",mt:"Mato Grosso",pa:"Pará",pb:"Paraíba",pe:"Pernambuco",pi:"Piauí",pr:"Paraná",rj:"Rio de Janeiro",rn:"Rio Grande do Norte",ro:"Rondônia",rr:"Roraima",rs:"Rio Grande do Sul",sc:"Santa Catarina",se:"Sergipe",sp:"São Paulo",to:"Tocantins",zz:"Exterior"};
 const GRID = {rr:[2,0],ap:[4,0],am:[1,1],pa:[3,1],ma:[5,1],ce:[6,1],rn:[7,1],ac:[0,2],ro:[1,2],mt:[2,2],to:[4,2],pi:[5,2],pe:[6,2],pb:[7,2],ms:[2,3],go:[3,3],df:[4,3],ba:[5,3],se:[6,3],al:[7,3],sp:[3,4],mg:[4,4],es:[5,4],pr:[3,5],rj:[4,5],sc:[3,6],rs:[3,7],zz:[0,7]};
 const REFRESH = 30;
+const REG = [["N","Norte",["ac","am","ap","pa","ro","rr","to"]],["NE","Nordeste",["al","ba","ce","ma","pb","pe","pi","rn","se"]],["CO","Centro-Oeste",["df","go","ms","mt"]],["SE","Sudeste",["es","mg","rj","sp"]],["S","Sul",["pr","rs","sc"]],["EX","Exterior",["zz"]]];
+const REG_OF = {}; REG.forEach((r,i)=>r[2].forEach(u=>REG_OF[u]=i));
 
 const $ = id => document.getElementById(id);
 const nf = new Intl.NumberFormat("pt-BR");
@@ -256,14 +277,27 @@ function compute(){
     const fA = has? vA/frac : 0, fB = has? vB/frac : 0;
     if(inc){ pA+=fA; pB+=fB; covTe+=d.te; }
     cA+=vA; cB+=vB;
-    rows.push({uf,te:d.te,pct,has,inc,sA:sum?vA/sum*100:NaN,sB:sum?vB/sum*100:NaN,
+    rows.push({uf,te:d.te,st:d.st,ts:d.ts,vA,vB,fA,fB,pct,has,inc,sA:sum?vA/sum*100:NaN,sB:sum?vB/sum*100:NaN,
       lead: !sum?null:(vA>vB?"a":vB>vA?"b":null), mg: sum? Math.abs(vA-vB)/sum*100 : 0,
       rest: has? (fA+fB)-sum : NaN, net: has? (fA-vA)-(fB-vB) : NaN});
   });
   let oA=cA,oB=cB,pst=NaN;
   if(S.br){ oA=pick(S.br,A); oB=pick(S.br,B); pst = S.br.ts? S.br.st/S.br.ts*100 : NaN; }
   if(!isFinite(pst)){ const st=UFS.reduce((s,u)=>s+(S.data[u]?S.data[u].st:0),0), ts=UFS.reduce((s,u)=>s+(S.data[u]?S.data[u].ts:0),0); pst = ts? st/ts*100 : 0; }
-  return {A:base[0],B:base[1],oA,oB,pst,pA,pB,cov: teAll? covTe/teAll*100 : 0, rows};
+  const regs = REG.map(([sg,nm,ufs])=>{
+    const g={sg,nm,te:0,teCov:0,st:0,ts:0,vA:0,vB:0,pA:0,pB:0,cA:0,cB:0};
+    rows.filter(x=>ufs.includes(x.uf)).forEach(x=>{
+      g.te+=x.te; g.st+=x.st; g.ts+=x.ts; g.vA+=x.vA; g.vB+=x.vB;
+      if(x.inc){ g.pA+=x.fA; g.pB+=x.fB; g.cA+=x.vA; g.cB+=x.vB; g.teCov+=x.te; }
+    });
+    g.pct = g.ts? g.st/g.ts*100 : 0;
+    g.share = teAll? g.te/teAll*100 : 0;
+    g.cov = g.te? g.teCov/g.te*100 : 0;
+    g.rest = (g.pA+g.pB)-(g.cA+g.cB);
+    g.net = (g.pA-g.cA)-(g.pB-g.cB);
+    return g;
+  });
+  return {A:base[0],B:base[1],oA,oB,pst,pA,pB,cov: teAll? covTe/teAll*100 : 0, rows, regs};
 }
 
 /* ---------- render ---------- */
@@ -305,14 +339,32 @@ function render(){
     m.appendChild(t);
   });
 
+  // regiões
+  const pc2 = v => isFinite(v)? v.toLocaleString("pt-BR",{minimumFractionDigits:1,maximumFractionDigits:1})+"%" : "—";
+  $("regs").innerHTML = r.regs.map(g=>{
+    const oT=g.vA+g.vB, pT=g.pA+g.pB;
+    const oa=oT? g.vA/oT*100:NaN, ob=oT? g.vB/oT*100:NaN, pa=pT? g.pA/pT*100:NaN, pb=pT? g.pB/pT*100:NaN;
+    const diff=g.pA-g.pB;
+    const lead = !pT? '<span class="mut">sem apuração</span>' : '<b class="'+(diff>=0?"ca":"cb")+'">'+esc(diff>=0?nA:nB)+' +'+short(Math.abs(diff))+'</b>';
+    const net = pT&&Math.abs(g.net)>=1 ? '<b class="'+(g.net>0?"ca":"cb")+'">'+esc(g.net>0?nA:nB)+' +'+short(Math.abs(g.net))+'</b>' : '<b>—</b>';
+    return '<div class="reg"><div class="top"><h3>'+g.nm+'</h3><span class="sz">'+short(g.te)+' eleitores<br>'+pc2(g.share)+' do Brasil</span></div>'+
+      '<div class="prog"><span class="bar"><i style="width:'+Math.min(100,g.pct)+'%"></i></span>'+pf(g.pct)+' apurado</div>'+
+      '<div class="lines"><span></span><span class="ca" style="font-size:11px">'+esc(nA)+'</span><span class="cb" style="font-size:11px;text-align:right">'+esc(nB)+'</span>'+
+      '<span>Oficial</span><b class="ca">'+pc2(oa)+'</b><b class="cb r">'+pc2(ob)+'</b>'+
+      '<span>Previsão</span><b class="ca">'+pc2(pa)+'</b><b class="cb r">'+pc2(pb)+'</b></div>'+
+      '<div class="split"><i style="width:'+(pT?pa:50)+'%"></i></div>'+
+      '<div class="note"><span>Saldo projetado da região: '+lead+'</span><span>Do que falta (~'+(pT?short(g.rest):"—")+' válidos): '+net+'</span>'+
+      (g.cov<99.9&&pT? '<span>Previsão cobre '+pc2(g.cov)+' do eleitorado da região</span>':'')+'</div></div>';
+  }).join("");
+
   // tabela
   const rows=r.rows.slice();
   const k=S.sort;
-  rows.sort((a,b)=> k==="te"? b.te-a.te : k==="pct"? b.pct-a.pct : k==="mg"? b.mg-a.mg : ((isFinite(b.rest)?b.rest:-1)-(isFinite(a.rest)?a.rest:-1)));
+  rows.sort((a,b)=> k==="te"? b.te-a.te : k==="pct"? b.pct-a.pct : k==="mg"? b.mg-a.mg : k==="reg"? (REG_OF[a.uf]-REG_OF[b.uf])||(b.te-a.te) : ((isFinite(b.rest)?b.rest:-1)-(isFinite(a.rest)?a.rest:-1)));
   $("tb").innerHTML = rows.map(x=>{
     const lead = x.lead==="a"? '<span class="tag a">'+esc(nA)+' +'+x.mg.toFixed(1).replace(".",",")+'</span>' : x.lead==="b"? '<span class="tag b">'+esc(nB)+' +'+x.mg.toFixed(1).replace(".",",")+'</span>' : '<span class="tag n">—</span>';
     const net = isFinite(x.net)&&Math.abs(x.net)>=1 ? '<span class="'+(x.net>0?"ca":"cb")+'">'+(x.net>0?esc(nA):esc(nB))+' +'+short(Math.abs(x.net))+'</span>' : '<span class="mut">—</span>';
-    return '<tr class="'+(x.has&&!x.inc?"excl":"")+'"><td class="uf">'+(x.uf==="zz"?"EXT":x.uf.toUpperCase())+'<span>'+esc(NOME[x.uf])+'</span></td>'+
+    return '<tr class="'+(x.has&&!x.inc?"excl":"")+'"><td class="uf">'+(x.uf==="zz"?"EXT":x.uf.toUpperCase())+'<span>'+esc(NOME[x.uf])+' · '+REG[REG_OF[x.uf]][0]+'</span></td>'+
       '<td><span class="bar"><i style="width:'+Math.min(100,x.pct)+'%"></i></span>'+pf(x.pct)+'</td>'+
       '<td class="ca">'+pf(x.sA)+'</td><td class="cb">'+pf(x.sB)+'</td><td>'+lead+'</td>'+
       '<td>'+short(x.te)+'</td><td>'+(isFinite(x.rest)?short(x.rest):"—")+'</td><td>'+net+'</td></tr>';
