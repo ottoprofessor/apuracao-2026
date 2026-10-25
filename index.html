@@ -11,7 +11,7 @@
 :root{
   --bg:#080A0F; --panel:#0E121A; --panel2:#131926; --line:#1F2636;
   --fg:#E9ECF4; --mut:#8C95A8; --accent:#6D5DF6;
-  --ca:#22D3EE; --cb:#F5B83D; --bad:#F87171; --ok:#4ADE80;
+  --ca:#22D3EE; --cb:#F5B83D; --ca-rgb:34,211,238; --cb-rgb:245,184,61; --bad:#F87171; --ok:#4ADE80;
   --fd:'Exo 2',system-ui,sans-serif; --fb:'DM Sans',system-ui,sans-serif; --fm:'JetBrains Mono',ui-monospace,monospace;
   color-scheme:dark;
 }
@@ -76,8 +76,8 @@ td.uf span{font:400 11px var(--fb);color:var(--mut);margin-left:6px}
 .bar i{display:block;height:100%;background:var(--accent)}
 tr.excl td{opacity:.45}
 .tag{display:inline-block;padding:1px 7px;border-radius:5px;font:600 11px var(--fd)}
-.tag.a{background:rgba(34,211,238,.14);color:var(--ca)}
-.tag.b{background:rgba(245,184,61,.14);color:var(--cb)}
+.tag.a{background:rgba(var(--ca-rgb),.16);color:var(--ca)}
+.tag.b{background:rgba(var(--cb-rgb),.16);color:var(--cb)}
 .tag.n{background:var(--panel2);color:var(--mut)}
 .tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
 .tools label{font-size:12px;color:var(--mut);display:flex;align-items:center;gap:6px}
@@ -225,6 +225,16 @@ const UFS = ["ac","al","am","ap","ba","ce","df","es","go","ma","mg","ms","mt","p
 const NOME = {ac:"Acre",al:"Alagoas",am:"Amazonas",ap:"Amapá",ba:"Bahia",ce:"Ceará",df:"Distrito Federal",es:"Espírito Santo",go:"Goiás",ma:"Maranhão",mg:"Minas Gerais",ms:"Mato Grosso do Sul",mt:"Mato Grosso",pa:"Pará",pb:"Paraíba",pe:"Pernambuco",pi:"Piauí",pr:"Paraná",rj:"Rio de Janeiro",rn:"Rio Grande do Norte",ro:"Rondônia",rr:"Roraima",rs:"Rio Grande do Sul",sc:"Santa Catarina",se:"Sergipe",sp:"São Paulo",to:"Tocantins",zz:"Exterior"};
 const GRID = {rr:[2,0],ap:[4,0],am:[1,1],pa:[3,1],ma:[5,1],ce:[6,1],rn:[7,1],ac:[0,2],ro:[1,2],mt:[2,2],to:[4,2],pi:[5,2],pe:[6,2],pb:[7,2],ms:[2,3],go:[3,3],df:[4,3],ba:[5,3],se:[6,3],al:[7,3],sp:[3,4],mg:[4,4],es:[5,4],pr:[3,5],rj:[4,5],sc:[3,6],rs:[3,7],zz:[0,7]};
 const REFRESH = 30;
+// cores por número do candidato: 13 (Lula) vermelho, 22 (Flávio) azul
+const COR = {"13":"239,68,68","22":"59,130,246"};
+const COR_PADRAO = ["34,211,238","245,184,61"];
+let RGB = COR_PADRAO.slice();
+function applyColors(A,B){
+  RGB = [COR[A.n]||COR_PADRAO[0], COR[B.n]||COR_PADRAO[1]];
+  const st=document.documentElement.style;
+  st.setProperty("--ca","rgb("+RGB[0]+")"); st.setProperty("--cb","rgb("+RGB[1]+")");
+  st.setProperty("--ca-rgb",RGB[0]); st.setProperty("--cb-rgb",RGB[1]);
+}
 const REG = [["N","Norte",["ac","am","ap","pa","ro","rr","to"]],["NE","Nordeste",["al","ba","ce","ma","pb","pe","pi","rn","se"]],["CO","Centro-Oeste",["df","go","ms","mt"]],["SE","Sudeste",["es","mg","rj","sp"]],["S","Sul",["pr","rs","sc"]],["EX","Exterior",["zz"]]];
 const REG_OF = {}; REG.forEach((r,i)=>r[2].forEach(u=>REG_OF[u]=i));
 
@@ -351,6 +361,7 @@ function render(){
   const r=compute();
   if(!r){ return; }
   const nA=r.A.nm, nB=r.B.nm;
+  applyColors(r.A,r.B);
   ["offNa","prNa","lgA","chName","thA"].forEach(id=>setTxt(id,nA));
   ["offNb","prNb","lgB","thB"].forEach(id=>setTxt(id,nB));
   const oT=r.oA+r.oB, oPa=oT? r.oA/oT*100 : NaN, oPb=oT? r.oB/oT*100 : NaN;
@@ -377,8 +388,8 @@ function render(){
     const t=document.createElement("div"); t.className="tile"; t.style.gridColumn=(c+1); t.style.gridRow=(rw+1);
     const lbl = uf==="zz"?"EXT":uf.toUpperCase();
     let col="", alpha=0;
-    if(x&&x.lead){ col = x.lead==="a"?"34,211,238":"245,184,61"; alpha=Math.min(.9,.25+x.mg/30); }
-    if(col){ t.style.background="rgba("+col+","+alpha+")"; t.style.borderColor="rgba("+col+",.6)"; t.style.color= alpha>.55?"#080A0F":"var(--fg)"; }
+    if(x&&x.lead){ col = x.lead==="a"?RGB[0]:RGB[1]; alpha=Math.min(.9,.25+x.mg/30); }
+    if(col){ t.style.background="rgba("+col+","+alpha+")"; t.style.borderColor="rgba("+col+",.6)"; t.style.color= alpha>.55?"#fff":"var(--fg)"; }
     t.title = (NOME[uf]||uf)+(x&&x.has? " · "+pf(x.pct)+" apurado · "+nA+" "+pf(x.sA)+" × "+nB+" "+pf(x.sB) : " · sem apuração");
     t.innerHTML = lbl+"<small>"+(x&&x.has? Math.round(x.pct)+"%" : "—")+"</small>";
     m.appendChild(t);
