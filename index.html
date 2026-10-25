@@ -82,6 +82,22 @@ tr.excl td{opacity:.45}
 .tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
 .tools label{font-size:12px;color:var(--mut);display:flex;align-items:center;gap:6px}
 .method{font-size:12px;color:var(--mut);max-width:80ch;margin:0}
+.t1 table{min-width:560px}
+.t1 td:first-child{font:700 13px var(--fd)}
+.t1 td small{color:var(--mut);font-size:11px;margin-left:6px}
+.prog-br{display:flex;height:22px;border-radius:6px;overflow:hidden;gap:2px}
+.prog-br .seg{position:relative;background:var(--panel2);min-width:0}
+.prog-br .seg i{position:absolute;left:0;top:0;bottom:0;background:var(--accent);transition:width .6s ease}
+.prog-br .seg span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:700 10px var(--fd);color:var(--fg);mix-blend-mode:normal;white-space:nowrap;overflow:hidden}
+.prog-rows{display:flex;flex-direction:column;gap:10px}
+.prow{display:grid;grid-template-columns:96px 1fr;gap:10px;align-items:center}
+.prow .nm{font:700 13px var(--fd)}
+.prow .track{position:relative;height:18px}
+.prow .cap{position:absolute;left:0;top:0;bottom:0;background:var(--panel2);border:1px solid var(--line);border-radius:5px;overflow:hidden}
+.prow .cap i{display:block;height:100%;background:var(--accent);transition:width .6s ease}
+.prow .lbl{font:400 11px var(--fm);color:var(--mut);grid-column:2;margin-top:-6px}
+.prow .lbl b{color:var(--fg);font-weight:600}
+@media (max-width:480px){.prow{grid-template-columns:72px 1fr}}
 .regs{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px}
 .reg{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
 .reg .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
@@ -146,6 +162,12 @@ tr.excl td{opacity:.45}
   </div>
 </section>
 
+<section class="panel t1">
+  <div class="tools"><h2>Comparação com o 1º turno</h2><span class="mut" id="t1Status" style="font-size:12px">carregando o 1º turno…</span></div>
+  <div class="tablebox"><table><thead><tr><th>Candidato</th><th>1º turno · 04/10</th><th>2º turno · previsão</th><th>Variação</th><th>Votos a mais</th></tr></thead><tbody id="t1b"></tbody></table></div>
+  <div class="foot" id="t1foot"></div>
+</section>
+
 <section class="grid2">
   <div class="panel">
     <h2>Quem lidera em cada estado</h2>
@@ -161,7 +183,10 @@ tr.excl td{opacity:.45}
 </section>
 
 <section class="panel">
-  <div class="tools"><h2>Por região</h2><span class="mut" style="font-size:12px">mesma regra da previsão, somando os estados de cada região</span></div>
+  <div class="tools"><h2>Por região</h2><span class="mut" style="font-size:12px">mesma regra da previsão, somando os estados de cada região · "1º turno" = disputa só entre os dois</span></div>
+  <div class="tools"><h2 style="color:var(--fg)">Progresso da apuração</h2><span class="mut" style="font-size:12px">comprimento = tamanho do eleitorado · parte preenchida = já apurado</span></div>
+  <div class="prog-br" id="progBr" aria-label="Brasil dividido por região"></div>
+  <div class="prog-rows" id="progRows"></div>
   <div class="regs" id="regs"></div>
 </section>
 
@@ -180,7 +205,7 @@ tr.excl td{opacity:.45}
   <div class="tablebox">
     <table>
       <thead><tr>
-        <th>UF</th><th>Apurado</th><th id="thA">A</th><th id="thB">B</th><th>Líder</th><th>Eleitorado</th><th>Válidos a apurar (est.)</th><th>Saldo projetado do que falta</th>
+        <th>UF</th><th>Apurado</th><th id="thA">A</th><th id="thB">B</th><th>Líder</th><th>vs 1º turno</th><th>Eleitorado</th><th>Válidos a apurar (est.)</th><th>Saldo projetado do que falta</th>
       </tr></thead>
       <tbody id="tb"></tbody>
     </table>
@@ -210,7 +235,7 @@ const num = s => { const n = parseInt(String(s??"0").replace(/\D/g,""),10); retu
 const short = n => Math.abs(n)>=1e6 ? (n/1e6).toLocaleString("pt-BR",{maximumFractionDigits:2})+" mi" : Math.abs(n)>=1e3 ? Math.round(n/1e3).toLocaleString("pt-BR")+" mil" : nf.format(Math.round(n));
 const esc = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
-let S = {data:{}, br:null, cands:null, demo:false, auto:true, minPct:0, sort:"te", hist:[], timer:null, left:REFRESH, demoState:null, busy:false};
+let S = {data:{}, br:null, cands:null, demo:false, auto:true, minPct:0, sort:"te", hist:[], t1:{}, t1br:null, t1ok:false, timer:null, left:REFRESH, demoState:null, busy:false};
 try{ const h = JSON.parse(localStorage.getItem("apur26-hist")||"[]"); if(Array.isArray(h)) S.hist = h; }catch(e){}
 
 function candsOf(j){
@@ -236,6 +261,17 @@ async function fetchReal(){
   return {ok,total:list.length,err:firstErr};
 }
 
+const ELE1 = "6257";
+const url1 = uf => "https://resultados.tse.jus.br/oficial/ele2026/"+ELE1+"/dados/"+uf+"/"+uf+"-c0001-e00"+ELE1+"-u.json";
+async function fetchT1(){
+  if(S.t1ok) return;
+  const list=["br"].concat(UFS);
+  const res=await Promise.allSettled(list.map(uf=>fetch(url1(uf)).then(r=>{ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })));
+  let ok=0;
+  res.forEach((r,i)=>{ if(r.status==="fulfilled"){ ok++; const d=parse(r.value); if(list[i]==="br") S.t1br=d; else S.t1[list[i]]=d; } });
+  S.t1ok = ok===list.length;
+}
+
 /* ---------- simulação (só para teste) ---------- */
 const TE_DEMO={sp:34.4,mg:16.4,rj:12.8,ba:11.4,rs:8.6,pr:8.3,pe:7.0,ce:6.9,pa:6.2,sc:5.6,go:4.9,ma:4.9,pb:3.1,es:2.9,am:2.7,rn:2.6,pi:2.6,mt:2.5,al:2.3,df:2.2,ms:2.0,se:1.7,ro:1.3,to:1.1,zz:0.7,ac:0.6,ap:0.6,rr:0.37};
 function demoTick(){
@@ -243,6 +279,11 @@ function demoTick(){
     S.demoState={};
     UFS.forEach(uf=>{ const north = ["ba","pe","ce","ma","pi","pb","rn","al","se","pa","am","ap","to"].includes(uf); const south=["sc","pr","rs","sp","mt","ms","go","ro","ac","rr","df"].includes(uf);
       S.demoState[uf]={share:(north?0.62:south?0.40:0.50)+(Math.random()-0.5)*0.08, bias:(Math.random()-0.5)*0.10, p:0, delay:Math.random()*0.15};});
+    let a1=0,b1=0,v1=0;
+    UFS.forEach(uf=>{ const d=S.demoState[uf], te=Math.round(TE_DEMO[uf]*1e6), vv=Math.round(te*0.78), oth=Math.round(vv*(0.04+Math.random()*0.06));
+      const s1=Math.min(.95,Math.max(.05,d.share+(Math.random()-0.5)*0.05)), A1=Math.round((vv-oth)*s1), B1=vv-oth-A1;
+      S.t1[uf]={te,vv,c:[{n:"A",v:A1},{n:"B",v:B1},{n:"X",v:oth}]}; a1+=A1; b1+=B1; v1+=vv; });
+    S.t1br={vv:v1,c:[{n:"A",v:a1},{n:"B",v:b1}]}; S.t1ok=true;
   }
   let tA=0,tB=0,teAll=0,stAll=0,tsAll=0;
   UFS.forEach(uf=>{
@@ -277,7 +318,8 @@ function compute(){
     const fA = has? vA/frac : 0, fB = has? vB/frac : 0;
     if(inc){ pA+=fA; pB+=fB; covTe+=d.te; }
     cA+=vA; cB+=vB;
-    rows.push({uf,te:d.te,st:d.st,ts:d.ts,vA,vB,fA,fB,pct,has,inc,sA:sum?vA/sum*100:NaN,sB:sum?vB/sum*100:NaN,
+    const t=S.t1[uf], a1=t?pick(t,A):0, b1=t?pick(t,B):0, vv1=t?t.vv:0;
+    rows.push({uf,te:d.te,est:(d.est>0?d.est:d.te*pct/100),st:d.st,ts:d.ts,vA,vB,fA,fB,a1,b1,vv1,h1:(a1+b1)?a1/(a1+b1)*100:NaN,pct,has,inc,sA:sum?vA/sum*100:NaN,sB:sum?vB/sum*100:NaN,
       lead: !sum?null:(vA>vB?"a":vB>vA?"b":null), mg: sum? Math.abs(vA-vB)/sum*100 : 0,
       rest: has? (fA+fB)-sum : NaN, net: has? (fA-vA)-(fB-vB) : NaN});
   });
@@ -285,9 +327,9 @@ function compute(){
   if(S.br){ oA=pick(S.br,A); oB=pick(S.br,B); pst = S.br.ts? S.br.st/S.br.ts*100 : NaN; }
   if(!isFinite(pst)){ const st=UFS.reduce((s,u)=>s+(S.data[u]?S.data[u].st:0),0), ts=UFS.reduce((s,u)=>s+(S.data[u]?S.data[u].ts:0),0); pst = ts? st/ts*100 : 0; }
   const regs = REG.map(([sg,nm,ufs])=>{
-    const g={sg,nm,te:0,teCov:0,st:0,ts:0,vA:0,vB:0,pA:0,pB:0,cA:0,cB:0};
+    const g={sg,nm,te:0,est:0,teCov:0,st:0,ts:0,vA:0,vB:0,pA:0,pB:0,cA:0,cB:0,a1:0,b1:0};
     rows.filter(x=>ufs.includes(x.uf)).forEach(x=>{
-      g.te+=x.te; g.st+=x.st; g.ts+=x.ts; g.vA+=x.vA; g.vB+=x.vB;
+      g.te+=x.te; g.est+=x.est; g.a1+=x.a1; g.b1+=x.b1; g.st+=x.st; g.ts+=x.ts; g.vA+=x.vA; g.vB+=x.vB;
       if(x.inc){ g.pA+=x.fA; g.pB+=x.fB; g.cA+=x.vA; g.cB+=x.vB; g.teCov+=x.te; }
     });
     g.pct = g.ts? g.st/g.ts*100 : 0;
@@ -297,7 +339,10 @@ function compute(){
     g.net = (g.pA-g.cA)-(g.pB-g.cB);
     return g;
   });
-  return {A:base[0],B:base[1],oA,oB,pst,pA,pB,cov: teAll? covTe/teAll*100 : 0, rows, regs};
+  let t1=null;
+  if(S.t1br) t1={a1:pick(S.t1br,A),b1:pick(S.t1br,B),vv1:S.t1br.vv};
+  else if(rows.some(x=>x.vv1)) t1={a1:rows.reduce((s,x)=>s+x.a1,0),b1:rows.reduce((s,x)=>s+x.b1,0),vv1:rows.reduce((s,x)=>s+x.vv1,0)};
+  return {A:base[0],B:base[1],oA,oB,pst,pA,pB,cov: teAll? covTe/teAll*100 : 0, rows, regs, t1};
 }
 
 /* ---------- render ---------- */
@@ -339,6 +384,30 @@ function render(){
     m.appendChild(t);
   });
 
+  // 1º turno
+  if(r.t1&&r.t1.vv1){
+    const t=r.t1, oth=t.vv1-t.a1-t.b1;
+    const p1A=t.a1/t.vv1*100, p1B=t.b1/t.vv1*100, pO=oth/t.vv1*100;
+    const dA=pPa-p1A, dB=pPb-p1B, gA=r.pA-t.a1, gB=r.pB-t.b1;
+    const sg=(v,votes)=> isFinite(v)? (v>=0?"+":"−")+(votes?short(Math.abs(v)):Math.abs(v).toLocaleString("pt-BR",{maximumFractionDigits:2})+" p.p.") : "—";
+    const row=(nm,cls,v1,p1,p2,v2,d,g)=>'<tr><td class="'+cls+'">'+esc(nm)+'</td><td>'+pf(p1)+'<small>'+short(v1)+'</small></td><td>'+(isFinite(p2)?pf(p2)+'<small>~'+short(v2)+'</small>':'—')+'</td><td class="'+cls+'">'+sg(d)+'</td><td>'+(pT?sg(g,1):"—")+'</td></tr>';
+    $("t1b").innerHTML = row(nA,"ca",t.a1,p1A,pPa,r.pA,dA,gA)+row(nB,"cb",t.b1,p1B,pPb,r.pB,dB,gB)+
+      '<tr><td class="mut">Outros candidatos</td><td>'+pf(pO)+'<small>'+short(oth)+'</small></td><td class="mut">—</td><td class="mut">—</td><td class="mut">—</td></tr>';
+    const h1=t.a1/(t.a1+t.b1)*100;
+    $("t1foot").innerHTML = '<span>Só entre os dois no 1º turno: <b class="ca">'+esc(nA)+' '+pf(h1)+'</b> × <b class="cb">'+esc(nB)+' '+pf(100-h1)+'</b></span>'+
+      (pT? '<span>Mudança até a previsão de agora: <b class="'+(pPa-h1>=0?"ca":"cb")+'">'+esc(pPa-h1>=0?nA:nB)+' +'+Math.abs(pPa-h1).toLocaleString("pt-BR",{maximumFractionDigits:2})+' p.p.</b></span>' : '')+
+      (pT&&r.cov>=99.9? '<span>Dos '+short(oth)+' votos de outros candidatos no 1º turno, a previsão indica <b class="ca">'+esc(nA)+' '+sg(gA,1)+'</b> e <b class="cb">'+esc(nB)+' '+sg(gB,1)+'</b> (também reflete mudança no comparecimento)</span>' : '');
+    setTxt("t1Status", S.demo? "1º turno simulado" : "dados oficiais finais do 1º turno (eleição 6257)");
+  } else { setTxt("t1Status","1º turno ainda não carregou; tento de novo na próxima atualização"); }
+
+  // progresso por região
+  const teBr = r.regs.reduce((s,g)=>s+g.te,0), teMax = Math.max(1,...r.regs.map(g=>g.te));
+  $("progBr").innerHTML = r.regs.map(g=>{ const f=g.te? Math.min(100,g.est/g.te*100):0;
+    return '<div class="seg" style="flex:'+(g.te||0)+' 1 0" title="'+g.nm+' · '+pf(f)+' do eleitorado apurado"><i style="width:'+f+'%"></i><span>'+(g.te/teBr>0.06?g.sg:"")+'</span></div>'; }).join("");
+  $("progRows").innerHTML = r.regs.map(g=>{ const f=g.te? Math.min(100,g.est/g.te*100):0, w=g.te/teMax*100;
+    return '<div class="prow"><span class="nm">'+g.nm+'</span><div class="track"><div class="cap" style="width:'+w+'%"><i style="width:'+f+'%"></i></div></div>'+
+      '<span class="lbl"><b>'+pf(f)+'</b> apurado · '+short(g.est)+' de '+short(g.te)+' eleitores · '+pf(teBr?g.te/teBr*100:0)+' do Brasil</span></div>'; }).join("");
+
   // regiões
   const pc2 = v => isFinite(v)? v.toLocaleString("pt-BR",{minimumFractionDigits:1,maximumFractionDigits:1})+"%" : "—";
   $("regs").innerHTML = r.regs.map(g=>{
@@ -351,9 +420,11 @@ function render(){
       '<div class="prog"><span class="bar"><i style="width:'+Math.min(100,g.pct)+'%"></i></span>'+pf(g.pct)+' apurado</div>'+
       '<div class="lines"><span></span><span class="ca" style="font-size:11px">'+esc(nA)+'</span><span class="cb" style="font-size:11px;text-align:right">'+esc(nB)+'</span>'+
       '<span>Oficial</span><b class="ca">'+pc2(oa)+'</b><b class="cb r">'+pc2(ob)+'</b>'+
-      '<span>Previsão</span><b class="ca">'+pc2(pa)+'</b><b class="cb r">'+pc2(pb)+'</b></div>'+
+      '<span>Previsão</span><b class="ca">'+pc2(pa)+'</b><b class="cb r">'+pc2(pb)+'</b>'+
+      ((g.a1+g.b1)? '<span>1º turno</span><b class="ca" style="opacity:.7">'+pc2(g.a1/(g.a1+g.b1)*100)+'</b><b class="cb r" style="opacity:.7">'+pc2(g.b1/(g.a1+g.b1)*100)+'</b>' : '')+'</div>'+
       '<div class="split"><i style="width:'+(pT?pa:50)+'%"></i></div>'+
       '<div class="note"><span>Saldo projetado da região: '+lead+'</span><span>Do que falta (~'+(pT?short(g.rest):"—")+' válidos): '+net+'</span>'+
+      ((g.a1+g.b1)&&pT? (()=>{const d=pa-g.a1/(g.a1+g.b1)*100; return '<span>Desde o 1º turno: <b class="'+(d>=0?"ca":"cb")+'">'+esc(d>=0?nA:nB)+' +'+Math.abs(d).toLocaleString("pt-BR",{maximumFractionDigits:1})+' p.p.</b></span>';})() : '')+
       (g.cov<99.9&&pT? '<span>Previsão cobre '+pc2(g.cov)+' do eleitorado da região</span>':'')+'</div></div>';
   }).join("");
 
@@ -366,7 +437,7 @@ function render(){
     const net = isFinite(x.net)&&Math.abs(x.net)>=1 ? '<span class="'+(x.net>0?"ca":"cb")+'">'+(x.net>0?esc(nA):esc(nB))+' +'+short(Math.abs(x.net))+'</span>' : '<span class="mut">—</span>';
     return '<tr class="'+(x.has&&!x.inc?"excl":"")+'"><td class="uf">'+(x.uf==="zz"?"EXT":x.uf.toUpperCase())+'<span>'+esc(NOME[x.uf])+' · '+REG[REG_OF[x.uf]][0]+'</span></td>'+
       '<td><span class="bar"><i style="width:'+Math.min(100,x.pct)+'%"></i></span>'+pf(x.pct)+'</td>'+
-      '<td class="ca">'+pf(x.sA)+'</td><td class="cb">'+pf(x.sB)+'</td><td>'+lead+'</td>'+
+      '<td class="ca">'+pf(x.sA)+'</td><td class="cb">'+pf(x.sB)+'</td><td>'+lead+'</td><td>'+(()=>{ if(!isFinite(x.h1)||!isFinite(x.sA)) return '<span class="mut">—</span>'; const d=x.sA-x.h1; return '<span class="'+(d>=0?"ca":"cb")+'">'+esc(d>=0?nA:nB)+' +'+Math.abs(d).toLocaleString("pt-BR",{maximumFractionDigits:1})+' p.p.</span>'; })()+'</td>'+
       '<td>'+short(x.te)+'</td><td>'+(isFinite(x.rest)?short(x.rest):"—")+'</td><td>'+net+'</td></tr>';
   }).join("");
 
@@ -411,7 +482,7 @@ async function refresh(){
     if(S.demo){ demoTick(); setStatus("live","Simulação"); }
     else{
       setStatus("", "Buscando no TSE…");
-      const r=await fetchReal();
+      const [r]=await Promise.all([fetchReal(), fetchT1().catch(()=>{})]);
       if(r.ok===0){
         setStatus("err","Sem acesso ao TSE");
         $("errBox").hidden=false; setTxt("errDetail","Detalhe técnico: "+(r.err||"falha de rede"));
@@ -432,8 +503,8 @@ function tick(){
 }
 $("btnNow").addEventListener("click",()=>{ S.left=S.demo?4:REFRESH; refresh(); });
 $("btnAuto").addEventListener("click",()=>{ S.auto=!S.auto; S.left=S.demo?4:REFRESH; setTxt("btnAuto",S.auto?"Auto: "+S.left+"s":"Auto: desligado"); });
-$("btnDemo").addEventListener("click",()=>{ S.demo=true; S.data={}; S.br=null; S.demoState=null; $("errBox").hidden=true; $("demoBox").hidden=false; S.left=4; refresh(); });
-$("btnReal").addEventListener("click",()=>{ S.demo=false; S.data={}; S.br=null; $("demoBox").hidden=true; S.left=REFRESH; refresh(); });
+$("btnDemo").addEventListener("click",()=>{ S.demo=true; S.data={}; S.br=null; S.t1={}; S.t1br=null; S.t1ok=false; S.demoState=null; $("errBox").hidden=true; $("demoBox").hidden=false; S.left=4; refresh(); });
+$("btnReal").addEventListener("click",()=>{ S.demo=false; S.data={}; S.br=null; S.t1={}; S.t1br=null; S.t1ok=false; $("demoBox").hidden=true; S.left=REFRESH; refresh(); });
 $("minPct").addEventListener("change",e=>{ S.minPct=+e.target.value; render(); });
 $("sortBy").addEventListener("change",e=>{ S.sort=e.target.value; render(); });
 setInterval(tick,1000);
